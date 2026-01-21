@@ -9,8 +9,42 @@ class InMemoryStorage {
   async del(id) { this.data.delete(id); }
 }
 
+// Registered specs for code transformation
+const specs = [];
+
+// Register a spec from sequential-wrapper
+export function use(spec, endpoint) {
+  const { name, methods } = spec;
+  const base = endpoint.replace(/\/$/, '');
+
+  const patterns = methods.map(method => {
+    const parts = method.split('.');
+    const pattern = `${name}\\.${parts.join('\\.')}\\s*\\(([^)]*?)\\)`;
+    return {
+      regex: new RegExp(pattern, 'g'),
+      urlPath: parts.join('/')
+    };
+  }).sort((a, b) => b.urlPath.length - a.urlPath.length);
+
+  specs.push({ name, base, patterns });
+}
+
+function transform(code) {
+  let result = code;
+  for (const { base, patterns } of specs) {
+    for (const { regex, urlPath } of patterns) {
+      result = result.replace(regex, (_, args) => {
+        const argsStr = args.trim();
+        if (!argsStr) return `fetch("${base}/${urlPath}")`;
+        return `fetch("${base}/${urlPath}?args="+encodeURIComponent(JSON.stringify([${argsStr}])))`;
+      });
+    }
+  }
+  return result;
+}
+
 function normalize(code) {
-  let c = code.trim();
+  let c = transform(code.trim());
   let result = '', inString = false, stringChar = '', inTemplate = false;
 
   for (let i = 0; i < c.length; i++) {
@@ -28,7 +62,6 @@ function normalize(code) {
 
   let keys = null;
 
-  // Handle return { a, b } → convert to array, save keys for reconstruction
   if (result.includes('return ')) {
     const i = result.lastIndexOf('return ');
     let expr = result.slice(i + 7).replace(/;*$/, '').trim();

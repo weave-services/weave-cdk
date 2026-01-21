@@ -21,6 +21,28 @@ task = await resume('task-1', [{ id: 101 }]);
 // { id: 'task-1', status: 'done', result: { user: {...}, posts: [...] } }
 ```
 
+## With sequential-wrapper
+
+```javascript
+import { run, resume, use } from 'sequential';
+
+// Register a spec from sequential-wrapper
+use({
+  name: 'api',
+  methods: ['users.create', 'users.get']
+}, 'https://api.example.com');
+
+// Natural syntax - auto-transformed to fetch calls
+const code = `
+  const user = await api.users.create({ name: "Bob" })
+  return { user }
+`;
+
+let task = await run(code, 'task-1');
+task = await resume('task-1', { id: 1, name: 'Bob' });
+// { status: 'done', result: { user: { id: 1, name: 'Bob' } } }
+```
+
 ## Storage
 
 ```javascript

@@ -1,16 +1,24 @@
-import { run, resume } from './src/index.js';
+import { run, resume, use } from './src/index.js';
 
+// Register a spec (from sequential-wrapper)
+use({
+  name: 'api',
+  methods: ['users.create', 'users.get', 'greet']
+}, 'https://api.example.com');
+
+// Code uses natural syntax - automatically transformed to fetch calls
 const code = `
-  const user = await fetch("https://api.example.com/user/1")
-  const posts = await fetch("https://api.example.com/posts?uid=" + user.id)
-  return { user, posts }
+  const user = await api.users.create({ name: "Bob" })
+  const greeting = await api.greet("World")
+  return { user, greeting }
 `;
 
 let task = await run(code, 'task-1');
 console.log(task);
 
-task = await resume('task-1', { id: 1, name: 'Alice' });
+// Simulate resume with responses
+task = await resume('task-1', { id: 1, name: 'Bob' });
 console.log(task);
 
-task = await resume('task-1', [{ id: 101, title: 'Post 1' }]);
+task = await resume('task-1', 'Hello, World!');
 console.log(task);
